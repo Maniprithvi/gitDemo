@@ -1,0 +1,242 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?         @unique
+  emailVerified Boolean         @default(false)
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  Authenticator Authenticator[]
+  //for project fields
+  role          UserRole        @default(USER)
+  profilePic    String?
+  password      String?
+  payment       Payment?        @relation("userTopayment")
+  address       String?
+  isSubscribed  Boolean         @default(false)
+  organiser     Organiser?      @relation("UserToOrganiser")
+  savedEvents   SavedEvents[]   @relation("userTosaved")
+  bookedEvents  BookedTicket[]  @relation("userToBooked")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model Account {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String   @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.String
+  access_token      String?  @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.String
+  session_state     String?
+  // organiser Organiser?  @relation("UserToOrganiser")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Optional for WebAuthn support
+model Authenticator {
+  credentialID         String  @id @map("_id")
+  userId               String  @db.ObjectId
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, credentialID])
+}
+
+enum UserRole {
+  USER
+  ORGANISER
+  ADMIN
+}
+
+// Define the payment model
+model Payment {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique
+  user   User?  @relation("userTopayment", fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+// Define the address model
+model Address {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  street1 String
+  street2 String
+  city    String
+  state   String
+  nation  String
+  pincode String
+  Event   Event[]
+
+  @@map("addresses")
+}
+
+// Define the organiser model with relationships to user and events
+model Organiser {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String     @unique
+  user        User       @relation("UserToOrganiser", fields: [userId], references: [id])
+  socials     Social[]   @relation("organiser")
+  isVerified  Boolean?   @default(false)
+  phoneNumber String?
+  profilePic  String?
+  coverImage  String?
+  message     String?
+  magazines   Magazine[]
+  events      Event[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organisers")
+}
+
+model Social {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  organiserId String
+  organiser   Organiser @relation("organiser", fields: [organiserId], references: [id])
+  url         String
+  socialAcc   SocialAcc
+}
+
+enum SocialAcc {
+  FaceBook
+  Instagram
+  twitter
+}
+
+// Define the magazine model
+model Magazine {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  image       String
+  title       String
+  desc        String
+  timeToRead  String
+  organiserId String
+  organiser   Organiser @relation(fields: [organiserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("magazines")
+}
+
+// Define the event model with relationships to address and organiser
+model Event {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  eventName   String
+  desc        String
+  eventImage  String[]
+  language    String
+  addressId   String?      @db.ObjectId
+  address     Address?     @relation(fields: [addressId], references: [id])
+  category    String
+  date        String
+  time        String
+  isActive    Boolean?
+  isFeatured  Boolean?     @default(false)
+  promoCode   String?
+  organiserId String
+  savedEvents SavedEvents? @relation("savedByUser")
+  organiser   Organiser    @relation(fields: [organiserId], references: [id])
+  tickets     Ticket[]     @relation("eventToTicket")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("events")
+}
+
+model Ticket {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  class         String
+  specification String
+  totalSlot     Int
+  price         Int
+  eventId       String
+  Event         Event          @relation("eventToTicket", fields: [eventId], references: [id])
+  Users         BookedTicket[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model SavedEvents {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @unique
+  eventId String @unique
+  user    User   @relation("userTosaved", fields: [userId], references: [id])
+  event   Event  @relation("savedByUser", fields: [eventId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BookedTicket {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @unique
+  ticketId       String
+  ticket         Ticket   @relation(fields: [ticketId], references: [id])
+  bookingDetails String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  User           User     @relation("userToBooked", fields: [userId], references: [id])
+}
