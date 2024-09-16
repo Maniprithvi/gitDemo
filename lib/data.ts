@@ -25,6 +25,7 @@ export const AboutFeatureData = [
   },
 ];
 
+const sayHai="hai"
 export const eventData: object[] = [
   {
     id: "1",
