@@ -12,6 +12,7 @@ const firebaseConfig = {
   measurementId: "G-L3TRK17YYV",
 };
 const y = "here im changed somthing";
+const z = "hai maniyaan"
 
 const app = initializeApp(firebaseConfig);
 
